@@ -1,24 +1,44 @@
-from datetime import datetime
 import telebot
-from pycbrf import ExchangeRates
+from config import keys, TOKEN
+from extensions import ConvertionException, CryptoConverter, DeclensionByCases
 
 bot = telebot.TeleBot('5935816764:AAG7num21_q46K_F3JuDSeyF-Ka83yLTtIU')
 
-@bot.message_handler(commands = ['start']) # Обработчик команд
-def start(message):
-    marcup = telebot.types.ReplyKeyboardMarkup(row_width=2)
-    itembtn1 = telebot.types.KeyboardButton('USD')
-    itembtn2 = telebot.types.KeyboardButton('EUR')
+@bot.message_handler(commands=['start', 'help'])
+def help(message: telebot.types.Message):
+    text = 'Чтобы начать работу введите команду боту в формате:\n <имя валюты> ' \
+           '<в какую валюту перевести> <количество переводимой валюты> \n' \
+            'Увидеть все доступные валюты /values'
+    bot.reply_to(message, text)
 
-    marcup.add(itembtn1, itembtn2)
-    bot.send_message(chat_id=message.chat.id, text="<b>Конвектер Валют</b>", reply_marcup=marcup, parse_mode="html")
+@bot.message_handler(commands=['values'])
+def values(message: telebot.types.Message):
+    text = 'Доступные валюты:'
+    for key in keys.keys():
+        text = '\n'.join((text, key, ))
+    bot.reply_to(message, text)
 
-    
-@bot.message_handler(content_typse=['text']) # Обработчик контент 
-def message(message):
-    message_norm = message.text.strip().lower()
-    if message_norm in ['usd', 'eur']:
-        rates = ExchangeRates(datetime.now()) # Ставка курс на данный момент.
-        bot.send_message(chat_id=message.chat.id, text=f"<b>{message_norm.upper()} rate is {float(rates[message_norm.upper()].rate)}</b>", parse_mode="html")
+@bot.message_handler(content_types=['text', ])
+def get_price(message: telebot.types.Message):
+    try:
+        values = message.text.split(' ')
 
-bot.polling(none_stop=True)
+        if len(values) != 3:
+            raise ConvertionException('Количество параметров не совпадает. Используйте формат:\n<имя валюты> ' \
+           '<в какую валюту перевести> <количество переводимой валюты> \n')
+
+        quote, base, amount = values
+        total_base = CryptoConverter.get_price(quote, base, amount)
+    except ConvertionException as e:
+        bot.reply_to(message, f'Ошибка пользователя:\n{e}')
+    except Exception as e:
+        bot.reply_to(message, f'Не удалось обработать команду\n{e}')
+    else:
+        inclined_quote = DeclensionByCases(quote, float(amount))
+        inclined_base = DeclensionByCases(base, float(total_base))
+        quote = inclined_quote.incline()
+        base = inclined_base.incline()
+        text = f'{amount} {quote} = {total_base} {base}'
+        bot.send_message(message.chat.id, text)
+
+bot.polling()
