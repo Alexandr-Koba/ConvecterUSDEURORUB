@@ -19,6 +19,6 @@ def message(message):
     message_norm = message.text.strip().lower()
     if message_norm in ['usd', 'eur']:
         rates = ExchangeRates(datetime.now()) # Ставка курс на данный момент.
-        bot.send_message(chat_id=message.chat.id, text=f"<b>{message_norm.upper()} rate is {float(rates[message_norm.upper()])}</b>", parse_mode="html")
+        bot.send_message(chat_id=message.chat.id, text=f"<b>{message_norm.upper()} rate is {float(rates[message_norm.upper()].rate)}</b>", parse_mode="html")
 
 bot.polling(none_stop=True)
